@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using Lab_rab_2_1_Husainova_R.Z._bpi_23_02.ViewModel;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -19,6 +20,7 @@ namespace Lab_rab_2_1_Husainova_R.Z._bpi_23_02
         public MainWindow()
         {
             InitializeComponent();
+            DataContext = new MainViewModel();
         }
     }
 }
