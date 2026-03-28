@@ -1,4 +1,6 @@
-﻿using System;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -48,8 +50,7 @@ namespace Lab_rab_2_1_Husainova_R.Z._bpi_23_02.ViewModel
             // Имитация небольшой задержки (можно убрать)
             await Task.Delay(100);
             _originalArray = _sorter.GenerateRandomArray(ArraySize);
-            OriginalArrayString = "Исходный массив: " + string.Join(", ", _originalArray, 0, Math.Min(20,
-           _originalArray.Length)) + (ArraySize > 20 ? "..." : "");
+            OriginalArrayString = "Исходный массив: " + string.Join(", ", _originalArray, 0, Math.Min(20, _originalArray.Length)) + (ArraySize > 20 ? "..." : "");
             // Сброс результатов
             BubbleSortResult = QuickSortResult = InsertionSortResult = null;
             TotalComparisons = "Общее число сравнений: 0";
@@ -63,21 +64,21 @@ namespace Lab_rab_2_1_Husainova_R.Z._bpi_23_02.ViewModel
             BubbleSortResult = "Сортируется...";
             // Запускаем асинхронную сортировку и ждём результат
             var result = await _sorter.BubbleSortAsync(_originalArray);
-            BubbleSortResult = $"Пузырьковая: {FormatArray(result.SortedArray)}, время:{ result.ElapsedMilliseconds:F2}мс, сравнений: { result.Comparisons}";
-        UpdateTotalComparisons();
+            BubbleSortResult = $"Пузырьковая: {FormatArray(result.SortedArray)}, время: {result.ElapsedMilliseconds:F2} мс, сравнений: { result.Comparisons}";
+            UpdateTotalComparisons();
         }
         private async Task QuickSortAsync()
         {
             QuickSortResult = "Сортируется...";
             var result = await _sorter.QuickSortAsync(_originalArray);
-            QuickSortResult = $"Быстрая: {FormatArray(result.SortedArray)}, время: {result.ElapsedMilliseconds:F2}мс, сравнений: { result.Comparisons}";
+            QuickSortResult = $"Быстрая: {FormatArray(result.SortedArray)}, время: {result.ElapsedMilliseconds:F2} мс, сравнений: { result.Comparisons}";
         UpdateTotalComparisons();
         }
         private async Task InsertionSortAsync()
         {
             InsertionSortResult = "Сортируется...";
             var result = await _sorter.InsertionSortAsync(_originalArray);
-            InsertionSortResult = $"Вставками: {FormatArray(result.SortedArray)}, время:{ result.ElapsedMilliseconds:F2}мс, сравнений: { result.Comparisons}";
+            InsertionSortResult = $"Вставками: {FormatArray(result.SortedArray)}, время: { result.ElapsedMilliseconds:F2} мс, сравнений: { result.Comparisons}";
         UpdateTotalComparisons();
         }
         private void UpdateTotalComparisons()

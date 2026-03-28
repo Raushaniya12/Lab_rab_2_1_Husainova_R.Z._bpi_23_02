@@ -129,5 +129,78 @@ namespace Lab_rab_2_1_Husainova_R.Z._bpi_23_02
             }
             InsertionSortCompleted?.Invoke(array, comparisons, watch.Elapsed.TotalMilliseconds);
         }
+        public class SortResult
+        {
+            public int[] SortedArray { get; set; }
+            public long Comparisons { get; set; }
+            public double ElapsedMilliseconds { get; set; }
+        }
+        // Асинхронные методы-обертки 
+        public async Task<SortResult> BubbleSortAsync(int[] originalArray)
+        {
+            var tcs = new TaskCompletionSource<SortResult>();
+            SortCompletedHandler handler = null;
+
+            handler = (sortedArray, comparisons, elapsedMs) =>
+            {
+                BubbleSortCompleted -= handler; 
+                tcs.SetResult(new SortResult
+                {
+                    SortedArray = sortedArray,
+                    Comparisons = comparisons,
+                    ElapsedMilliseconds = elapsedMs
+                });
+            };
+
+            BubbleSortCompleted += handler;
+
+            await Task.Run(() => BubbleSort(originalArray));
+
+            return await tcs.Task;
+        }
+
+        public async Task<SortResult> QuickSortAsync(int[] originalArray)
+        {
+            var tcs = new TaskCompletionSource<SortResult>();
+            SortCompletedHandler handler = null;
+
+            handler = (sortedArray, comparisons, elapsedMs) =>
+            {
+                QuickSortCompleted -= handler;
+                tcs.SetResult(new SortResult
+                {
+                    SortedArray = sortedArray,
+                    Comparisons = comparisons,
+                    ElapsedMilliseconds = elapsedMs
+                });
+            };
+
+            QuickSortCompleted += handler;
+            await Task.Run(() => QuickSort(originalArray));
+
+            return await tcs.Task;
+        }
+
+        public async Task<SortResult> InsertionSortAsync(int[] originalArray)
+        {
+            var tcs = new TaskCompletionSource<SortResult>();
+            SortCompletedHandler handler = null;
+
+            handler = (sortedArray, comparisons, elapsedMs) =>
+            {
+                InsertionSortCompleted -= handler;
+                tcs.SetResult(new SortResult
+                {
+                    SortedArray = sortedArray,
+                    Comparisons = comparisons,
+                    ElapsedMilliseconds = elapsedMs
+                });
+            };
+
+            InsertionSortCompleted += handler;
+            await Task.Run(() => InsertionSort(originalArray));
+
+            return await tcs.Task;
+        }
     }
 }
