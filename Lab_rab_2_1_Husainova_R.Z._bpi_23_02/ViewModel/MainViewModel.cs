@@ -2,9 +2,11 @@
 using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace Lab_rab_2_1_Husainova_R.Z._bpi_23_02.ViewModel
 {
@@ -12,11 +14,19 @@ namespace Lab_rab_2_1_Husainova_R.Z._bpi_23_02.ViewModel
     {
         private readonly ArraySorter _sorter;
         private int[] _originalArray;
-        // Наблюдаемые свойства
+
+        // Управление отменой
+        private CancellationTokenSource _bubbleSortCts;
+        private CancellationTokenSource _quickSortCts;
+        private CancellationTokenSource _insertionSortCts;
+        private CancellationTokenSource _shakerSortCts;
+
         [ObservableProperty]
         private int _arraySize = 1000;
+
         [ObservableProperty]
         private string _originalArrayString;
+
         [ObservableProperty]
         private string _bubbleSortResult;
         [ObservableProperty]
@@ -25,8 +35,12 @@ namespace Lab_rab_2_1_Husainova_R.Z._bpi_23_02.ViewModel
         private string _insertionSortResult;
         [ObservableProperty]
         private string _shakerSortResult;
+
         [ObservableProperty]
         private string _totalComparisons = "Общее число сравнений: 0";
+
+        [ObservableProperty]
+        private bool _canGenerate = true;
 
         [ObservableProperty]
         private double _bubbleSortProgress;
@@ -36,138 +50,355 @@ namespace Lab_rab_2_1_Husainova_R.Z._bpi_23_02.ViewModel
         private double _insertionSortProgress;
         [ObservableProperty]
         private double _shakerSortProgress;
-        [ObservableProperty]
-        private string _bubbleSortProgressText = "";
-        [ObservableProperty]
-        private string _quickSortProgressText = "";
-        [ObservableProperty]
-        private string _insertionSortProgressText = "";
-        [ObservableProperty]
-        private string _shakerSortProgressText = "";
 
-        // Команды
+        [ObservableProperty]
+        private string _bubbleSortProgressText = "0%";
+        [ObservableProperty]
+        private string _quickSortProgressText = "0%";
+        [ObservableProperty]
+        private string _insertionSortProgressText = "0%";
+        [ObservableProperty]
+        private string _shakerSortProgressText = "0%";
+
+        [ObservableProperty]
+        private ObservableCollection<int> _availableThreadCounts =
+            new ObservableCollection<int> { 1, 2, 4, 8, Environment.ProcessorCount };
+
+        [ObservableProperty]
+        private int _threadCount = 1;
+
+        [ObservableProperty]
+        private string _totalExecutionTime = "Общее время: 0 мс";
+
+        private readonly Dictionary<string, double> _sortTimings = new();
+
+        [ObservableProperty]
+        private bool _useSharedArray = false;
+        [ObservableProperty]
+        private string _performanceNote = "";
+
         public IAsyncRelayCommand GenerateArrayCommand { get; }
         public IAsyncRelayCommand BubbleSortCommand { get; }
         public IAsyncRelayCommand QuickSortCommand { get; }
         public IAsyncRelayCommand InsertionSortCommand { get; }
         public IAsyncRelayCommand ShakerSortCommand { get; }
+        public IRelayCommand RunAllSortsCommand { get; }
+        public IRelayCommand CancelAllCommand { get; }
+
         public MainViewModel()
         {
             _sorter = new ArraySorter();
+
+            var threadOptions = new HashSet<int> { 1, 2, 4, 8, Environment.ProcessorCount };
+            AvailableThreadCounts = new ObservableCollection<int>(threadOptions.OrderBy(x => x));
+
             // Инициализация команд
             GenerateArrayCommand = new AsyncRelayCommand(GenerateArrayAsync, CanGenerateArray);
             BubbleSortCommand = new AsyncRelayCommand(BubbleSortAsync, CanSortBubble);
             QuickSortCommand = new AsyncRelayCommand(QuickSortAsync, CanSortQuick);
             InsertionSortCommand = new AsyncRelayCommand(InsertionSortAsync, CanSortInsertion);
             ShakerSortCommand = new AsyncRelayCommand(ShakerSortAsync, CanSortShaker);
+            RunAllSortsCommand = new RelayCommand(RunAllSorts);
+            CancelAllCommand = new RelayCommand(CancelAll);
         }
+
         // Условия выполнения команд
         private bool CanGenerateArray() => !GenerateArrayCommand.IsRunning;
         private bool CanSortBubble() => _originalArray != null && !BubbleSortCommand.IsRunning;
         private bool CanSortQuick() => _originalArray != null && !QuickSortCommand.IsRunning;
         private bool CanSortInsertion() => _originalArray != null && !InsertionSortCommand.IsRunning;
         private bool CanSortShaker() => _originalArray != null && !ShakerSortCommand.IsRunning;
-        // Асинхронные методы команд
+
+        // Команда генерации массива
         private async Task GenerateArrayAsync()
         {
-            // Имитация небольшой задержки (можно убрать)
             await Task.Delay(100);
+            CancelAll();
+            _sorter.ResetComparisons();
+            _sortTimings.Clear();
             _originalArray = _sorter.GenerateRandomArray(ArraySize);
             OriginalArrayString = "Исходный массив: " + string.Join(", ", _originalArray, 0, Math.Min(20, _originalArray.Length)) + (ArraySize > 20 ? "..." : "");
-            // Сброс результатов
+
             BubbleSortResult = QuickSortResult = InsertionSortResult = ShakerSortResult = null;
             TotalComparisons = "Общее число сравнений: 0";
+            PerformanceNote = "";
 
-            // Сброс прогресса
             BubbleSortProgress = QuickSortProgress = InsertionSortProgress = ShakerSortProgress = 0;
-            BubbleSortProgressText = QuickSortProgressText = InsertionSortProgressText = ShakerSortProgressText = "";
+            BubbleSortProgressText = QuickSortProgressText = InsertionSortProgressText = ShakerSortProgressText = "0%";
 
-            // Обновляем состояние других команд
             BubbleSortCommand.NotifyCanExecuteChanged();
             QuickSortCommand.NotifyCanExecuteChanged();
             InsertionSortCommand.NotifyCanExecuteChanged();
             ShakerSortCommand.NotifyCanExecuteChanged();
         }
+
+        // Пузырьковая сортировка
         private async Task BubbleSortAsync()
         {
+            _bubbleSortCts?.Cancel();
+            _bubbleSortCts?.Dispose();
+            _bubbleSortCts = new CancellationTokenSource();
+
+            _sorter.UseSharedArray = UseSharedArray;
             BubbleSortResult = "Сортируется...";
             BubbleSortProgress = 0;
+            BubbleSortProgressText = "0%";
+            BubbleSortCommand.NotifyCanExecuteChanged();
 
-            var progress = new Progress<double>(value =>
+            var progress = new Progress<int>(value =>
             {
-                BubbleSortProgress = Math.Min(100, value);
-                BubbleSortProgressText = $"{Math.Min(100, value):F1}%";
+                BubbleSortProgress = value;
+                BubbleSortProgressText = $"{value}%";
             });
 
-            var result = await _sorter.BubbleSortAsync(_originalArray, progress);
-            BubbleSortProgress = 100;
-            BubbleSortProgressText = "100%";
-            BubbleSortResult = $"Пузырьковая: {FormatArray(result.SortedArray)}, время: {result.ElapsedMilliseconds:F2} мс, сравнений: {result.Comparisons}";
-            UpdateTotalComparisons();
+            try
+            {
+                var result = await _sorter.BubbleSortAsync(_originalArray, _bubbleSortCts.Token, progress);
+                if (result.WasCancelled)
+                {
+                    BubbleSortResult = "Пузырьковая: отменена";
+                    _sortTimings.Remove("Bubble");
+                }
+                else
+                {
+                    BubbleSortResult = $"Пузырьковая: {FormatArray(result.SortedArray)}, время: {result.ElapsedMilliseconds:F2} мс, сравнений: {result.Comparisons}";
+                    BubbleSortProgress = 100;
+                    BubbleSortProgressText = "100%";
+                    _sortTimings["Bubble"] = result.ElapsedMilliseconds;
+                    UpdateTotalComparisons();
+                    UpdateTotalExecutionTime();
+
+                    if (UseSharedArray)
+                    {
+                        PerformanceNote = "возможны задержки";
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                BubbleSortResult = "Пузырьковая: отменена";
+            }
+            finally
+            {
+                BubbleSortCommand.NotifyCanExecuteChanged();
+            }
         }
+
+        // Быстрая сортировка
         private async Task QuickSortAsync()
         {
+            _quickSortCts?.Cancel();
+            _quickSortCts?.Dispose();
+            _quickSortCts = new CancellationTokenSource();
+
+            _sorter.UseSharedArray = UseSharedArray;
             QuickSortResult = "Сортируется...";
             QuickSortProgress = 0;
+            QuickSortProgressText = "0%";
+            QuickSortCommand.NotifyCanExecuteChanged();
 
-            var progress = new Progress<double>(value =>
+            var progress = new Progress<int>(value =>
             {
                 QuickSortProgress = value;
-                QuickSortProgressText = $"{value:F1}%";
+                QuickSortProgressText = $"{value}%";
             });
 
-            var result = await _sorter.QuickSortAsync(_originalArray, progress);
-            QuickSortProgress = 100;
-            QuickSortProgressText = "100%";
-            QuickSortResult = $"Быстрая: {FormatArray(result.SortedArray)}, время: {result.ElapsedMilliseconds:F2} мс, сравнений: {result.Comparisons}";
-            UpdateTotalComparisons();
+            try
+            {
+                var result = await _sorter.QuickSortAsync(_originalArray, _quickSortCts.Token, progress);
+                if (result.WasCancelled)
+                {
+                    QuickSortResult = "Быстрая: отменена";
+                    _sortTimings.Remove("Quick");
+                }
+                else
+                {
+                    QuickSortResult = $"Быстрая: {FormatArray(result.SortedArray)}, время: {result.ElapsedMilliseconds:F2} мс, сравнений: {result.Comparisons}";
+                    QuickSortProgress = 100;
+                    QuickSortProgressText = "100%";
+                    _sortTimings["Quick"] = result.ElapsedMilliseconds;
+                    UpdateTotalComparisons();
+                    UpdateTotalExecutionTime();
+
+                    if (UseSharedArray)
+                    {
+                        PerformanceNote = "возможны задержки";
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                QuickSortResult = "Быстрая: отменена";
+            }
+            finally
+            {
+                QuickSortCommand.NotifyCanExecuteChanged();
+            }
         }
+
+        // Сортировка вставками
         private async Task InsertionSortAsync()
         {
+            _insertionSortCts?.Cancel();
+            _insertionSortCts?.Dispose();
+            _insertionSortCts = new CancellationTokenSource();
+
+            _sorter.UseSharedArray = UseSharedArray;
             InsertionSortResult = "Сортируется...";
             InsertionSortProgress = 0;
+            InsertionSortProgressText = "0%";
+            InsertionSortCommand.NotifyCanExecuteChanged();
 
-            var progress = new Progress<double>(value =>
+            var progress = new Progress<int>(value =>
             {
                 InsertionSortProgress = value;
-                InsertionSortProgressText = $"{value:F1}%";
+                InsertionSortProgressText = $"{value}%";
             });
 
-            var result = await _sorter.InsertionSortAsync(_originalArray, progress);
-            InsertionSortProgress = 100;
-            InsertionSortProgressText = "100%";
-            InsertionSortResult = $"Вставками: {FormatArray(result.SortedArray)}, время: {result.ElapsedMilliseconds:F2} мс, сравнений: {result.Comparisons}";
-            UpdateTotalComparisons();
+            try
+            {
+                var result = await _sorter.InsertionSortAsync(_originalArray, _insertionSortCts.Token, progress);
+                if (result.WasCancelled)
+                {
+                    InsertionSortResult = "Вставками: отменена";
+                    _sortTimings.Remove("Insertion");
+                }
+                else
+                {
+                    InsertionSortResult = $"Вставками: {FormatArray(result.SortedArray)}, время: {result.ElapsedMilliseconds:F2} мс, сравнений: {result.Comparisons}";
+                    InsertionSortProgress = 100;
+                    InsertionSortProgressText = "100%";
+                    _sortTimings["Insertion"] = result.ElapsedMilliseconds;
+                    UpdateTotalComparisons();
+                    UpdateTotalExecutionTime();
+
+                    if (UseSharedArray)
+                    {
+                        PerformanceNote = "возможны задержки";
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                InsertionSortResult = "Вставками: отменена";
+            }
+            finally
+            {
+                InsertionSortCommand.NotifyCanExecuteChanged();
+            }
         }
+
+        // Шейкерная сортировка
         private async Task ShakerSortAsync()
         {
-            if (_originalArray == null) return;
+            _shakerSortCts?.Cancel();
+            _shakerSortCts?.Dispose();
+            _shakerSortCts = new CancellationTokenSource();
 
+            _sorter.UseSharedArray = UseSharedArray;
             ShakerSortResult = "Сортируется...";
             ShakerSortProgress = 0;
+            ShakerSortProgressText = "0%";
+            ShakerSortCommand.NotifyCanExecuteChanged();
 
-            var progress = new Progress<double>(value =>
+            var progress = new Progress<int>(value =>
             {
                 ShakerSortProgress = value;
-                ShakerSortProgressText = $"{value:F1}%";
+                ShakerSortProgressText = $"{value}%";
             });
 
-            var result = await _sorter.ShakerSortAsync(_originalArray, progress);
-            ShakerSortProgress = 100;
-            ShakerSortProgressText = "100%";
-            ShakerSortResult = $"Шейкерная: {FormatArray(result.SortedArray)}, время: {result.ElapsedMilliseconds:F2} мс, сравнений: {result.Comparisons}";
-            UpdateTotalComparisons();
+            try
+            {
+                var result = await _sorter.ShakerSortAsync(_originalArray, _shakerSortCts.Token, progress);
+                if (result.WasCancelled)
+                {
+                    ShakerSortResult = "Шейкерная: отменена";
+                    _sortTimings.Remove("Shaker");
+                }
+                else
+                {
+                    ShakerSortResult = $"Шейкерная: {FormatArray(result.SortedArray)}, время: {result.ElapsedMilliseconds:F2} мс, сравнений: {result.Comparisons}";
+                    ShakerSortProgress = 100;
+                    ShakerSortProgressText = "100%";
+                    _sortTimings["Shaker"] = result.ElapsedMilliseconds;
+                    UpdateTotalComparisons();
+                    UpdateTotalExecutionTime();
+
+                    if (UseSharedArray)
+                    {
+                        PerformanceNote = "возможны задержки";
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                ShakerSortResult = "Шейкерная: отменена";
+            }
+            finally
+            {
+                ShakerSortCommand.NotifyCanExecuteChanged();
+            }
         }
+
+        // Запуск всех сортировок
+        private void RunAllSorts()
+        {
+            if (_originalArray == null)
+            {
+                MessageBox.Show("Сначала сгенерируйте массив!", "Предупреждение",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            _ = BubbleSortAsync();
+            _ = QuickSortAsync();
+            _ = InsertionSortAsync();
+            _ = ShakerSortAsync();
+        }
+
+        // Команда отмены всех потоков
+        private void CancelAll()
+        {
+            _bubbleSortCts?.Cancel();
+            _quickSortCts?.Cancel();
+            _insertionSortCts?.Cancel();
+            _shakerSortCts?.Cancel();
+
+            _bubbleSortCts?.Dispose();
+            _quickSortCts?.Dispose();
+            _insertionSortCts?.Dispose();
+            _shakerSortCts?.Dispose();
+
+            _bubbleSortCts = null;
+            _quickSortCts = null;
+            _insertionSortCts = null;
+            _shakerSortCts = null;
+        }
+
+        // Вспомогательные методы
         private void UpdateTotalComparisons()
         {
             TotalComparisons = $"Общее число сравнений: {_sorter.TotalComparisons}";
         }
+
         private string FormatArray(int[] arr)
         {
             if (arr.Length <= 10)
                 return string.Join(", ", arr);
             else
                 return string.Join(", ", arr, 0, 5) + "...";
+        }
+
+        partial void OnThreadCountChanged(int value)
+        {
+            _sorter.MaxDegreeOfParallelism = value;
+            System.Diagnostics.Debug.WriteLine($"Потоков: {value}");
+        }
+
+        private void UpdateTotalExecutionTime()
+        {
+            double totalMs = _sortTimings.Values.Sum();
+            TotalExecutionTime = $"Общее время выполнения: {totalMs:F2} мс";
         }
     }
 }
