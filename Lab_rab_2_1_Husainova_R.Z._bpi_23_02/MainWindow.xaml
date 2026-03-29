@@ -51,22 +51,22 @@
 
         <!-- Пузырьковая -->
         <TextBlock Grid.Row="7" Grid.Column="0" Text="Пузырьковая:" Margin="3" VerticalAlignment="Center"/>
-        <ProgressBar Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" Height="20" Value="{Binding BubbleSortProgress}" Margin="3"/>
+        <ProgressBar Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" Height="20" Value="{Binding BubbleSortProgress}" Maximum="100" Margin="3"/>
         <TextBlock Grid.Row="7" Grid.Column="3" Text="{Binding BubbleSortProgressText}" Margin="3"/>
 
         <!-- Быстрая -->
         <TextBlock Grid.Row="8" Grid.Column="0" Text="Быстрая:" Margin="3" VerticalAlignment="Center"/>
-        <ProgressBar Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Height="20" Value="{Binding QuickSortProgress}" Margin="3"/>
+        <ProgressBar Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Height="20" Value="{Binding QuickSortProgress}" Maximum="100" Margin="3"/>
         <TextBlock Grid.Row="8" Grid.Column="3" Text="{Binding QuickSortProgressText}" Margin="3"/>
 
         <!-- Вставками -->
         <TextBlock Grid.Row="9" Grid.Column="0" Text="Вставками:" Margin="3" VerticalAlignment="Center"/>
-        <ProgressBar Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Height="20" Value="{Binding InsertionSortProgress}" Margin="3"/>
+        <ProgressBar Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Height="20" Value="{Binding InsertionSortProgress}" Maximum="100" Margin="3"/>
         <TextBlock Grid.Row="9" Grid.Column="3" Text="{Binding InsertionSortProgressText}" Margin="3"/>
 
         <!-- Шейкерная -->
         <TextBlock Grid.Row="10" Grid.Column="0" Text="Шейкерная:" Margin="3" VerticalAlignment="Center"/>
-        <ProgressBar Grid.Row="10" Grid.Column="1" Grid.ColumnSpan="2" Height="20" Value="{Binding ShakerSortProgress}" Margin="3"/>
+        <ProgressBar Grid.Row="10" Grid.Column="1" Grid.ColumnSpan="2" Height="20" Value="{Binding ShakerSortProgress}" Maximum="100" Margin="3"/>
         <TextBlock Grid.Row="10" Grid.Column="3" Text="{Binding ShakerSortProgressText}" Margin="3"/>
 
         <!-- Результаты -->
