@@ -341,7 +341,7 @@ namespace Lab_rab_2_1_Husainova_R.Z._bpi_23_02.ViewModel
         }
 
         // Запуск всех сортировок
-        private void RunAllSorts()
+        private async void RunAllSorts() 
         {
             if (_originalArray == null)
             {
@@ -350,10 +350,16 @@ namespace Lab_rab_2_1_Husainova_R.Z._bpi_23_02.ViewModel
                 return;
             }
 
+            _sorter.MaxDegreeOfParallelism = Math.Min(4, Environment.ProcessorCount);
+
+            UseSharedArray = false;
+
             _ = BubbleSortAsync();
             _ = QuickSortAsync();
             _ = InsertionSortAsync();
             _ = ShakerSortAsync();
+
+            PerformanceNote = "Все сортировки запущены параллельно";
         }
 
         // Команда отмены всех потоков
