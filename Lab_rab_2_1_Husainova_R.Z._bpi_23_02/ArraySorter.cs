@@ -18,7 +18,7 @@ namespace Lab_rab_2_1_Husainova_R.Z._bpi_23_02
     {
         // Общий счётчик сравнений (разделяемый ресурс)
         private long _totalComparisons;
-        private readonly object _locker = new object();
+        private readonly object _locker = new();
         public bool UseSharedArray { get; set; } = false;
         private readonly object _arrayAccessLock = new object();
 
@@ -28,12 +28,6 @@ namespace Lab_rab_2_1_Husainova_R.Z._bpi_23_02
         public event SortCompletedHandler QuickSortCompleted;
         public event SortCompletedHandler InsertionSortCompleted;
         public event SortCompletedHandler ShakerSortCompleted;
-        // Делегаты и события для обновления прогресса
-        public delegate void ProgressChangedHandler(int percent);
-        public event ProgressChangedHandler BubbleSortProgressChanged;
-        public event ProgressChangedHandler QuickSortProgressChanged;
-        public event ProgressChangedHandler InsertionSortProgressChanged;
-        public event ProgressChangedHandler ShakerSortProgressChanged;
 
         // Свойство для доступа к общему счётчику
         private int _maxThreads = 1;
